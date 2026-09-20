@@ -4,10 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>ORmaps</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b0e14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ORmaps">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="firebase-config.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;font-family:Oswald,Impact,"Arial Narrow",sans-serif}
 :root{--bg:rgba(8,10,14,.86);--acc:#f2c744;--mag:#d946ef;--line:rgba(255,255,255,.16)}
@@ -158,6 +169,7 @@ body[data-ui=nav] #user-arrow svg{width:44px;height:44px}
       <button class="btn y" id="ph-verify">Verificar e entrar</button>
     </div>
     <div id="ph-msg" class="sub" style="color:#f87171;min-height:16px;font-size:12px"></div>
+    <div id="ph-recaptcha"></div>
   </div>
 
   <button class="btn" id="btn-guest">Continuar sem login</button>
@@ -606,7 +618,7 @@ function navUI(pos){
   $('nav-time').textContent=fmt(left);
   $('nav-eta').textContent=`${fmtD(rem)} · ${cfg.units==='mi'?Math.round(spd*2.237)+' mph':Math.round(spd*3.6)+' km/h'} · chegada ${new Date(Date.now()+left*1000).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`;
   $('bar-fill').style.width=(100*tr/route.dist)+'%';
-  if(rem<25&&!arrived){arrived=true;$('nav-street').textContent='Você chegou ao destino';$('nav-arrow').textContent='⚑';const n=firstName();say(n?`Você chegou, ${n}!`:'Você chegou ao destino');setTimeout(reset,3000)}
+  if(rem<25&&!arrived){arrived=true;$('nav-street').textContent='Você chegou ao destino';$('nav-arrow').textContent='⚑';const n=firstName();say(n?`Você chegou, ${n}!`:'Você chegou ao destino',!!n);setTimeout(reset,3000)}
 }
 function startNav(){
   if(!route)return;
@@ -614,7 +626,7 @@ function startNav(){
   navigating=true;arrived=false;lastStep=-1;navIdx=0;show('nav');
   map.dragging.disable();map.touchZoom.disable();map.doubleClickZoom.disable();
   document.body.classList.toggle('tilt',!!cfg.tilt);map.invalidateSize();
-  const nm=firstName();if(nm)say(`Vamos lá, ${nm}! Boa viagem.`);
+  const nm=firstName();if(nm)say(`Vamos lá, ${nm}! Boa viagem.`,true);
   if(sim){
     let idx=0,pos=route.coords[0];lastPos=pos;
     simTimer=setInterval(()=>{
@@ -677,7 +689,14 @@ $('btn-fav').onclick=()=>{
   let f=store.get('favs',[]);const has=f.some(x=>x.n===place.n);
   f=has?f.filter(x=>x.n!==place.n):[place,...f];store.set('favs',f);$('btn-fav').textContent=has?'☆ Salvar':'★ Salvo';
 };
-function say(t){if(!cfg.voice||!window.speechSynthesis)return;const u=new SpeechSynthesisUtterance(t);u.lang='pt-BR';speechSynthesis.cancel();speechSynthesis.speak(u)}
+let vip=false; // true enquanto fala a saudação/chegada, pra as curvas não cortarem
+function say(t,always){ // always = fala mesmo com a "Orientação por voz" desligada (saudação e chegada com o nome)
+  if(!window.speechSynthesis||(!cfg.voice&&!always))return;
+  const u=new SpeechSynthesisUtterance(t);u.lang='pt-BR';
+  if(always){speechSynthesis.cancel();vip=true;const done=()=>{vip=false};u.onend=u.onerror=done;setTimeout(done,7000)}
+  else if(!vip)speechSynthesis.cancel(); // fala normal interrompe a anterior; durante a saudação ela entra na fila
+  speechSynthesis.speak(u);
+}
 
 // Assistente: IA real (Claude/Gemini) com contexto da rota e o nome do usuário; sem chave, responde só sobre a rota
 const hist=[];
@@ -790,41 +809,104 @@ document.querySelectorAll('.ltab').forEach(t=>t.onclick=()=>{
   if(t.dataset.t==='google')initGoogle();
 });
 
-// E-mail + senha (conta local, salva só neste navegador)
-$('em-signup').onclick=()=>{
+// E-mail + senha e celular (SMS): reais via Firebase Authentication quando o firebase-config.js está preenchido.
+// Sem configuração, cai no modo local/demonstração antigo (nada é enviado).
+const FBC=window.ORMAPS_FIREBASE||{};
+let fbAuth=null;
+try{if(window.firebase&&FBC.apiKey&&FBC.appId){firebase.initializeApp(FBC);fbAuth=firebase.auth();fbAuth.languageCode='pt-BR'}}catch(e){console.error('Firebase:',e)}
+const FB_ERR={
+ 'auth/email-already-in-use':'Já existe uma conta com esse e-mail. Toque em Entrar.',
+ 'auth/invalid-email':'Esse e-mail não parece válido (ex.: nome@gmail.com).',
+ 'auth/weak-password':'Senha fraca: use pelo menos 6 caracteres.',
+ 'auth/invalid-credential':'E-mail ou senha incorretos.','auth/wrong-password':'E-mail ou senha incorretos.','auth/user-not-found':'E-mail ou senha incorretos.','auth/invalid-login-credentials':'E-mail ou senha incorretos.',
+ 'auth/too-many-requests':'Muitas tentativas. Espere alguns minutos e tente de novo.',
+ 'auth/network-request-failed':'Sem conexão. Confira a internet.',
+ 'auth/operation-not-allowed':'Esse método de login ainda não foi ativado no Firebase.',
+ 'auth/unauthorized-domain':'Este site não está autorizado no Firebase (adicione davovo57.github.io em Authorized domains).',
+ 'auth/invalid-phone-number':'Número inválido. Digite DDD + número.',
+ 'auth/missing-phone-number':'Digite o número do celular.',
+ 'auth/invalid-verification-code':'Código incorreto.','auth/code-expired':'Código expirado. Peça um novo.',
+ 'auth/quota-exceeded':'Limite de SMS atingido. Tente mais tarde.',
+ 'auth/billing-not-enabled':'SMS não liberado: ative o plano Blaze no Firebase.',
+ 'auth/captcha-check-failed':'Falha na verificação de segurança. Tente de novo.'
+};
+const fbMsg=e=>FB_ERR[e&&e.code]||('Erro: '+((e&&e.code)||(e&&e.message)||'tente de novo'));
+async function busy(b,fn){const t=b.textContent;b.disabled=true;b.textContent='Aguarde…';try{await fn()}finally{b.disabled=false;b.textContent=t}}
+
+// E-mail + senha
+const emMsg=t=>{$('em-msg').textContent=t||''};
+function emCheck(){
   const email=$('em-email').value.trim().toLowerCase(),pass=$('em-pass').value;
-  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))return $('em-msg').textContent='Digite um e-mail válido.';
-  if(pass.length<4)return $('em-msg').textContent='Senha muito curta (mín. 4 caracteres).';
-  const accs=getAccounts();
-  if(accs[email])return $('em-msg').textContent='Já existe uma conta com esse e-mail. Toque em Entrar.';
-  $('em-msg').textContent='';
+  if(!email){emMsg('Digite seu e-mail.');return null}
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){emMsg('Esse e-mail não parece válido (ex.: nome@gmail.com).');return null}
+  if(!pass){emMsg('Digite sua senha.');return null}
+  emMsg('');return{email,pass};
+}
+$('em-signup').onclick=()=>busy($('em-signup'),async()=>{
+  const c=emCheck();if(!c)return;const{email,pass}=c,min=fbAuth?6:4;
+  if(pass.length<min)return emMsg(`Senha muito curta (mín. ${min} caracteres).`);
+  if(fbAuth){
+    try{await fbAuth.createUserWithEmailAndPassword(email,pass)}catch(e){return emMsg(fbMsg(e))}
+    const acc=getAccounts()[email]||{method:'email',id:email,name:'',gender:''};
+    saveAccount(acc);return loginAs(acc,true);
+  }
+  if(getAccounts()[email])return emMsg('Já existe uma conta com esse e-mail. Toque em Entrar.');
   const acc={method:'email',id:email,pass:hashPass(pass),name:'',gender:''};
   saveAccount(acc);loginAs(acc,true);
-};
-$('em-login').onclick=()=>{
-  const email=$('em-email').value.trim().toLowerCase(),pass=$('em-pass').value;
-  const acc=getAccounts()[email];
-  if(!acc||acc.pass!==hashPass(pass))return $('em-msg').textContent='E-mail ou senha incorretos.';
-  $('em-msg').textContent='';loginAs(acc,false);
-};
+});
+$('em-login').onclick=()=>busy($('em-login'),async()=>{
+  const c=emCheck();if(!c)return;
+  if(fbAuth){
+    try{await fbAuth.signInWithEmailAndPassword(c.email,c.pass)}catch(e){return emMsg(fbMsg(e))}
+    const acc=getAccounts()[c.email]||{method:'email',id:c.email,name:'',gender:''};
+    return loginAs(acc,false);
+  }
+  const acc=getAccounts()[c.email];
+  if(!acc||acc.pass!==hashPass(c.pass))return emMsg('E-mail ou senha incorretos.');
+  loginAs(acc,false);
+});
 
-// Celular (código de verificação simulado — sem SMS real, o código aparece na tela)
-let phoneCode=null,phonePending=null;
-$('ph-send').onclick=()=>{
-  const num=$('ph-num').value.replace(/\D/g,'');
-  if(num.length<10)return $('ph-msg').textContent='Digite um número válido com DDD.';
-  $('ph-msg').textContent='';phonePending=num;phoneCode=String(Math.floor(1000+Math.random()*9000));
+// Celular: SMS real (Firebase + reCAPTCHA invisível) ou código simulado se o Firebase não estiver configurado
+let phoneCode=null,phonePending=null,phoneConf=null,recap=null;
+const phMsg=t=>{$('ph-msg').textContent=t||''};
+function resetRecap(){try{recap&&recap.clear()}catch{}recap=null;$('ph-recaptcha').innerHTML=''}
+function toE164(raw){
+  const d=raw.replace(/\D/g,'');
+  if(raw.trim().startsWith('+'))return'+'+d;
+  if(d.length>=12&&d.startsWith('55'))return'+'+d;
+  return'+55'+d.replace(/^0+/,'');
+}
+$('ph-send').onclick=()=>busy($('ph-send'),async()=>{
+  const raw=$('ph-num').value,num=raw.replace(/\D/g,'');
+  if(num.length<10)return phMsg('Digite um número válido com DDD.');
+  phMsg('');
+  if(fbAuth){
+    const e164=toE164(raw);
+    try{
+      resetRecap();recap=new firebase.auth.RecaptchaVerifier('ph-recaptcha',{size:'invisible'});
+      phoneConf=await fbAuth.signInWithPhoneNumber(e164,recap);
+      phonePending=e164.replace(/\D/g,'');
+      $('ph-hint').textContent=`Enviamos um SMS para ${e164}. Digite o código recebido.`;
+      $('ph-step2').style.display='flex';
+    }catch(e){resetRecap();phMsg(fbMsg(e))}
+    return;
+  }
+  phonePending=num;phoneCode=String(Math.floor(1000+Math.random()*9000));
   $('ph-hint').textContent=`Modo demonstração (sem SMS real) — seu código: ${phoneCode}`;
   $('ph-step2').style.display='flex';
-};
-$('ph-verify').onclick=()=>{
+});
+$('ph-verify').onclick=()=>busy($('ph-verify'),async()=>{
   const code=$('ph-code').value.trim();
-  if(code!==phoneCode)return $('ph-msg').textContent='Código incorreto.';
-  $('ph-msg').textContent='';
+  if(!code)return phMsg('Digite o código.');
+  if(fbAuth){
+    if(!phoneConf)return phMsg('Toque em Enviar código primeiro.');
+    try{await phoneConf.confirm(code)}catch(e){return phMsg(fbMsg(e))}
+  }else if(code!==phoneCode)return phMsg('Código incorreto.');
+  phMsg('');
   const accs=getAccounts();const isNew=!accs[phonePending];
   const acc=accs[phonePending]||{method:'phone',id:phonePending,name:'',gender:''};
   saveAccount(acc);loginAs(acc,isNew);
-};
+});
 
 function openLogin(){$('login').style.display='flex';initGoogle()}
 function closeLogin(){$('login').style.display='none'}
@@ -914,12 +996,13 @@ function acctUI(){
 }
 $('sp-avatar').onclick=()=>$('settings').classList.add('open');
 $('acct-btn').onclick=()=>{
-  if(isLoggedIn()){store.set('user',null);acctUI();suggest()}else openLogin();
+  if(isLoggedIn()){store.set('user',null);if(fbAuth)fbAuth.signOut().catch(()=>{});acctUI();suggest()}else openLogin();
 };
 acctUI();
 syncCompass(false);
 if(!isLoggedIn()&&!store.get('guest',false))openLogin();
 }
 </script>
+<script>if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))</script>
 </body>
 </html>
