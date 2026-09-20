@@ -279,12 +279,6 @@ body[data-ui=nav] #user-arrow svg{width:44px;height:44px}
   <div class="set"><span>Modo de navegação<small>GPS real ou simulação</small></span><select data-k="nav"><option value="auto">Automático</option><option value="gps">GPS real</option><option value="sim">Simulação</option></select></div>
   <div class="set"><span>Velocidade da simulação<small>1× = tempo real</small></span><select data-k="simx"><option value="1">1×</option><option value="4">4×</option><option value="10">10×</option></select></div>
   <div class="set"><span>Unidades de distância</span><select data-k="units"><option value="km">Quilômetros</option><option value="mi">Milhas</option></select></div>
-  <div class="sh">Assistente</div>
-  <div class="set"><span>Provedor de IA<small>Gemini tem plano grátis</small></span><select data-k="provider"><option value="gemini">Google Gemini</option><option value="anthropic">Anthropic Claude</option></select></div>
-  <div class="set"><span>Chave do Gemini<small>aistudio.google.com/apikey · salva só neste navegador</small></span><input type="password" data-k="gkey" placeholder="AQ.…"></div>
-  <div class="set"><span>Modelo do Gemini</span><input type="text" data-k="gmodel"></div>
-  <div class="set"><span>Chave da Anthropic<small>Opcional · paga por uso</small></span><input type="password" data-k="key" placeholder="sk-ant-…"></div>
-  <div class="set"><span>Modelo da Anthropic</span><select data-k="model"><option value="claude-haiku-4-5-20251001">Haiku 4.5 (rápido)</option><option value="claude-sonnet-5">Sonnet 5 (mais capaz)</option></select></div>
   <div class="sh">Dados</div>
   <div class="set"><span id="clr-hist" style="cursor:pointer">Limpar histórico de pesquisa</span></div>
   <div class="set"><span id="clr-favs" style="cursor:pointer">Limpar favoritos</span></div>
@@ -333,6 +327,7 @@ let cfg=Object.assign({nav:'auto',units:'km',voice:false,follow:true,compass:tru
 if(cfg.gmodel==='gemini-2.5-flash')cfg.gmodel='gemini-3.6-flash';
 if(!cfg.gclient)cfg.gclient='452525255855-8fsrm4m29evd9g34egne5c3g14sn06b2.apps.googleusercontent.com';
 
+const PROXY='https://ormaps-ai.roberalves30.workers.dev'; // Worker que guarda a chave do Gemini
 const fmt=s=>{const m=Math.max(1,Math.round(s/60));return m>=60?`${Math.floor(m/60)} h ${m%60} min`:`${m} min`};
 const fmtD=d=>cfg.units==='mi'?(d<300?Math.round(d*3.281/10)*10+' ft':(d/1609.34).toFixed(1).replace('.',',')+' mi'):d>=1000?(d/1000).toFixed(1).replace('.',',')+' km':(Math.max(0,Math.round(d/10)*10))+' m';
 const bearing=(a,b)=>{const r=Math.PI/180,dl=(b[1]-a[1])*r,y=Math.sin(dl)*Math.cos(b[0]*r),x=Math.cos(a[0]*r)*Math.sin(b[0]*r)-Math.sin(a[0]*r)*Math.cos(b[0]*r)*Math.cos(dl);return(Math.atan2(y,x)/r+360)%360};
@@ -702,13 +697,11 @@ async function where(){
   return whereC.v;
 }
 async function askGemini(key,sys,msgs,onDelta,think=true){
-  const body={systemInstruction:{parts:[{text:sys}]},contents:msgs.map(m=>({role:m.role==='user'?'user':'model',parts:[{text:m.content}]})),generationConfig:{maxOutputTokens:180}};
-  if(think)body.generationConfig.thinkingConfig={thinkingLevel:'minimal'}; // menos "pensar" = resposta mais rápida
-  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${cfg.gmodel}:streamGenerateContent?alt=sse`,{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':key},body:JSON.stringify(body)});
+  const r=await fetch(PROXY,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({system:sys,messages:msgs.map(m=>({role:m.role,content:m.content}))})}); // o Worker guarda a chave e fala com o Gemini
   if(!r.ok){
     const j=await r.json().catch(()=>({}));
     if(think&&r.status===400)return askGemini(key,sys,msgs,onDelta,false); // modelo sem esse parâmetro
-    throw new Error(j.error?.message||r.status);
+    throw new Error(r.status===429?'muitos pedidos, espere um minuto':(j.error?.message||r.status));
   }
   const rd=r.body.getReader(),dec=new TextDecoder();let buf='',out='';
   for(;;){
@@ -722,7 +715,7 @@ async function askGemini(key,sys,msgs,onDelta,think=true){
   return out;
 }
 async function ask(t,onDelta){
-  const g=cfg.provider==='gemini',key=g?cfg.gkey:cfg.key;
+  const g=true,key='proxy';
   if(!key)return`Para eu responder qualquer dúvida, cole a chave ${g?'do Gemini':'da Anthropic'} em Configurações › Assistente. Por enquanto só sei da rota: `+local(t);
   where();const w=whereC.v; // usa o local já em cache, sem esperar a rede
   const u=store.get('user',null)||{},nm=firstName();
