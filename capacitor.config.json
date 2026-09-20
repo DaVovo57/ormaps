@@ -1,0 +1,9 @@
+{
+  "appId": "com.davovo57.ormaps",
+  "appName": "ORmaps",
+  "webDir": "www",
+  "backgroundColor": "#0b0e14",
+  "android": {
+    "allowMixedContent": false
+  }
+}

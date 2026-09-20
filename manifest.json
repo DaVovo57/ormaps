@@ -1,15 +1,15 @@
 {
   "name": "ORmaps",
   "short_name": "ORmaps",
-  "description": "Mapa e navegação estilo GTA V",
+  "description": "Mapas e navegação passo a passo",
   "lang": "pt-BR",
-  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0b0e14",
   "theme_color": "#0b0e14",
+  "prefer_related_applications": false,
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
