@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>ORmaps</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0b0e14">
@@ -17,19 +17,20 @@
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="firebase-config.js"></script>
+<script src="app-config.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;font-family:Oswald,Impact,"Arial Narrow",sans-serif}
-:root{--bg:rgba(8,10,14,.86);--acc:#f2c744;--mag:#d946ef;--line:rgba(255,255,255,.16)}
+:root{--sat:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px));--sab:max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px));--bg:rgba(8,10,14,.86);--acc:#f2c744;--mag:#d946ef;--line:rgba(255,255,255,.16)}
 html,body{width:100%;height:100%;overflow:hidden;background:#0b0e14;color:#fff}
 #stage{position:absolute;inset:0;overflow:hidden;background:#0b0e14;perspective:750px;perspective-origin:50% 66%}
 #map{position:absolute;left:0;top:0;width:100%;height:100%;transition:transform .3s linear}
 body.tilt #map{width:240vw;height:190vh;left:-70vw;top:-29vh}
 body.tilt #stage::after{content:"";position:absolute;left:0;right:0;top:0;height:24vh;background:linear-gradient(#0b0e14,transparent);pointer-events:none;z-index:900}
-/* Temas: o filtro dá o clima GTA V em cima dos tiles */
-body[data-theme=atlas] .leaflet-tile-pane{filter:saturate(1.4) contrast(1.1) brightness(.94)}
-body[data-theme=noite] .leaflet-tile-pane{filter:invert(1) hue-rotate(195deg) saturate(.85) brightness(.85) contrast(1.15)}
+/* Temas do mapa: filtros por cima dos tiles */
+body[data-theme=claro] .leaflet-tile-pane{filter:saturate(1.4) contrast(1.1) brightness(.94)}
+body[data-theme=escuro] .leaflet-tile-pane{filter:invert(1) hue-rotate(195deg) saturate(.85) brightness(.85) contrast(1.15)}
 body[data-theme=sat] .leaflet-tile-pane{filter:saturate(1.25) contrast(1.1) brightness(.92)}
 .panel{position:absolute;z-index:1000;background:var(--bg);border:1px solid var(--line);backdrop-filter:blur(6px);box-shadow:0 6px 24px #000a}
 .btn{border:0;cursor:pointer;text-transform:uppercase;letter-spacing:1px;font-weight:700;font-size:13px;padding:9px 16px;border-radius:4px;background:rgba(255,255,255,.12);color:#fff;white-space:nowrap}
@@ -42,26 +43,26 @@ body[data-ui=search] #search-top,body[data-ui=select] #sel-top{display:flex}
 body[data-ui=select] #card{display:block}
 body[data-ui=nav] #nav-top{display:block}
 body[data-ui=nav] #nav-bot{display:flex}
-#search-top,#sel-top{top:12px;left:12px;right:12px;border-radius:6px;padding:8px 10px;align-items:center;gap:8px}
+#search-top,#sel-top{top:calc(12px + var(--sat));left:12px;right:12px;border-radius:6px;padding:8px 10px;align-items:center;gap:8px}
 #search-input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:#fff;font-size:16px;letter-spacing:.5px}
-#suggestions{top:66px;left:12px;right:12px;z-index:1005;max-height:240px;overflow:auto;display:none;border-radius:6px}
+#suggestions{top:calc(66px + var(--sat));left:12px;right:12px;z-index:1005;max-height:240px;overflow:auto;display:none;border-radius:6px}
 .sug{padding:12px 14px;font-size:14px;font-weight:500;border-bottom:1px solid var(--line);cursor:pointer}
 .sug:hover{background:#fff;color:#000}
 .modes{display:flex;gap:6px}
 .mode{min-width:54px;padding:5px 9px;text-align:center;font-size:12px;line-height:1.3;border:1px solid var(--line);border-radius:4px;cursor:pointer}
 .mode.on{background:#fff;color:#000}
-#card{left:0;right:0;bottom:0;border-radius:14px 14px 0 0;padding:14px 18px 22px}
+#card{left:0;right:0;bottom:0;border-radius:14px 14px 0 0;padding:14px 18px calc(22px + var(--sab))}
 .row{display:flex;gap:8px;margin:12px 0;overflow-x:auto}
 #preview{width:100%;height:130px;object-fit:cover;border-radius:6px;cursor:pointer;display:none}
-#nav-top{top:12px;left:12px;right:12px;border-left:6px solid var(--mag);border-radius:6px;padding:12px 16px}
-#nav-bot{left:0;right:0;bottom:0;border-radius:14px 14px 0 0;padding:14px 20px;justify-content:space-between;align-items:center}
-#hud{right:12px;top:84px;display:flex;flex-direction:column;gap:8px;background:none;border:0;box-shadow:none;backdrop-filter:none}
-body[data-ui=nav] #hud{top:104px}
+#nav-top{top:calc(12px + var(--sat));left:12px;right:12px;border-left:6px solid var(--mag);border-radius:6px;padding:12px 16px}
+#nav-bot{left:0;right:0;bottom:0;border-radius:14px 14px 0 0;padding:14px 20px calc(14px + var(--sab));justify-content:space-between;align-items:center}
+#hud{right:12px;top:calc(84px + var(--sat));display:flex;flex-direction:column;gap:8px;background:none;border:0;box-shadow:none;backdrop-filter:none}
+body[data-ui=nav] #hud{top:calc(104px + var(--sat))}
 .hb{width:44px;height:44px;border-radius:6px;background:var(--bg);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:19px;cursor:pointer}
 .hb.on{background:var(--acc);color:#000;border-color:var(--acc)}
-/* Radar estilo GTA: gira com a direção, N marca o norte */
-#radar-wrap{position:absolute;left:14px;bottom:18px;z-index:900;transition:bottom .2s,opacity .2s}
-body[data-ui=nav] #radar-wrap{bottom:104px}
+/* Radar (minimapa): gira com a direção, N marca o norte */
+#radar-wrap{position:absolute;left:14px;bottom:calc(18px + var(--sab));z-index:900;transition:bottom .2s,opacity .2s}
+body[data-ui=nav] #radar-wrap{bottom:calc(104px + var(--sab))}
 body[data-ui=select] #radar-wrap{opacity:0;pointer-events:none}
 #radar{width:124px;height:124px;border-radius:50%;overflow:hidden;border:3px solid #fff;box-shadow:0 0 0 2px #000,0 4px 14px #000a;position:relative;cursor:pointer;background:#222}
 #radar-rot{position:absolute;width:200px;height:200px;left:-41px;top:-41px;transition:transform .12s linear}
@@ -71,8 +72,8 @@ body[data-ui=select] #radar-wrap{opacity:0;pointer-events:none}
 #bar{display:none;height:8px;margin-top:6px;background:#000a;border:1px solid #000}
 body[data-ui=nav] #bar{display:block}
 #bar-fill{height:100%;width:0;background:#4ade80}
-#zone{position:absolute;left:152px;bottom:24px;z-index:900;font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:1px;text-shadow:0 2px 6px #000,0 0 2px #000;max-width:calc(100vw - 230px)}
-body[data-ui=nav] #zone{bottom:112px}
+#zone{position:absolute;left:152px;bottom:calc(24px + var(--sab));z-index:900;font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:1px;text-shadow:0 2px 6px #000,0 0 2px #000;max-width:calc(100vw - 230px)}
+body[data-ui=nav] #zone{bottom:calc(112px + var(--sab))}
 .wp{width:26px;height:26px;background:var(--mag);border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 8px #000a;position:relative}
 .wp::after{content:"";position:absolute;inset:6px;background:#fff;border-radius:50%}
 .modal{display:none;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2000;width:90%;max-width:360px;padding:18px;flex-direction:column;gap:12px;border-radius:8px}
@@ -86,15 +87,18 @@ body[data-ui=nav] #zone{bottom:112px}
 .msg.me{background:#fff;color:#000;align-self:flex-end}
 .chat-in{display:flex;gap:8px}.chat-in input{flex:1;min-width:0}
 #sv{position:absolute;inset:0;z-index:3000;background:#000;display:none;flex-direction:column}
-#sv>div{height:50px;background:#111;display:flex;justify-content:space-between;align-items:center;padding:0 16px;font-weight:700}
+#sv>.svh{height:calc(50px + var(--sat));background:#111;display:flex;justify-content:space-between;align-items:center;padding:var(--sat) 16px 0;font-weight:700}
 #sv iframe{flex:1;border:0;width:100%}
+#sv-note{background:#111;padding:4px 16px 10px;font-size:13px;font-weight:500;opacity:.9;min-height:28px}
+#sv-note b{color:var(--acc);cursor:pointer;text-decoration:underline}
+#sv-pano{flex:1;min-height:0;width:100%;background:#000}
 .leaflet-container{background:#2a3444}
 .sug small{opacity:.7;font-weight:500}
 .sh{padding:8px 14px;font-size:11px;letter-spacing:1px;color:var(--acc);text-transform:uppercase}
 .chips{display:flex;gap:6px;padding:10px 12px;overflow-x:auto}
 .chip{padding:8px 12px;border:1px solid var(--line);border-radius:16px;font-size:13px;white-space:nowrap;cursor:pointer}
 .chip.on,.chip:hover{background:#fff;color:#000}
-#settings{position:absolute;inset:0;z-index:2500;background:#0b0e14;display:none;overflow:auto;padding-bottom:40px}
+#settings{position:absolute;inset:0;z-index:2500;background:#0b0e14;display:none;overflow:auto;padding-top:var(--sat);padding-bottom:calc(40px + var(--sab))}
 #settings.open{display:block}
 .set{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);font-size:16px}
 .set small{display:block;opacity:.65;font-size:12px;font-weight:500}
@@ -111,7 +115,7 @@ body[data-ui=nav] #user-arrow svg{width:44px;height:44px}
 #radar-arrow{width:28px;height:28px;margin:-14px}
 .mode{min-width:46px;padding:5px 6px}
 #user-arrow[data-m=bus] svg{transform:scale(1.25)}#user-arrow[data-m=moto] svg{transform:scale(.85)}#user-arrow[data-m=foot] svg{transform:scale(.8)}
-#login{position:absolute;inset:0;z-index:6000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:28px;text-align:center;background:radial-gradient(120% 120% at 50% 0%,#1a2233,#0b0e14 60%)}
+#login{position:absolute;inset:0;z-index:6000;display:none;flex-direction:column;align-items:center;justify-content:center;justify-content:safe center;overflow-y:auto;gap:16px;padding:calc(28px + var(--sat)) 28px calc(28px + var(--sab));text-align:center;background:radial-gradient(120% 120% at 50% 0%,#1a2233,#0b0e14 60%)}
 #login .brand{font-size:30px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--acc)}
 #login .brand span{color:#fff}
 #g_btn{min-height:44px}
@@ -130,7 +134,7 @@ body[data-ui=nav] #user-arrow svg{width:44px;height:44px}
 .gbtn.on{background:var(--acc);color:#000;border-color:var(--acc)}
 </style>
 </head>
-<body data-ui="search" data-theme="atlas">
+<body data-ui="search" data-theme="claro">
 <div id="stage"><div id="map"></div></div>
 
 <div id="login">
@@ -140,36 +144,40 @@ body[data-ui=nav] #user-arrow svg{width:44px;height:44px}
   <div class="login-tabs">
     <div class="ltab on" data-t="google">Google</div>
     <div class="ltab" data-t="email">E-mail</div>
-    <div class="ltab" data-t="phone">Celular</div>
   </div>
 
   <div class="lpane" id="lp-google">
     <div id="g_btn"></div>
     <div id="login-fallback" style="display:none;flex-direction:column;gap:8px;align-items:center;max-width:280px">
-      <div class="sub" style="font-size:12px">Login com Google indisponível agora. Use e-mail ou celular.</div>
+      <div class="sub" style="font-size:12px">Login com Google indisponível agora. Use e-mail e senha.</div>
     </div>
   </div>
 
   <div class="lpane" id="lp-email" style="display:none">
-    <input class="linput" id="em-email" type="email" placeholder="E-mail" autocomplete="email">
+    <input class="linput" id="em-email" type="email" placeholder="E-mail" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false">
     <input class="linput" id="em-pass" type="password" placeholder="Senha" autocomplete="current-password">
-    <div id="em-msg" class="sub" style="color:#f87171;min-height:16px;font-size:12px"></div>
+    <input class="linput" id="em-pass2" type="password" placeholder="Repita a senha" autocomplete="new-password" style="display:none">
+    <div id="em-msg" class="sub" style="color:#f87171;min-height:32px;font-size:12px"></div>
     <div class="row" style="justify-content:center;margin:0">
       <button class="btn y" id="em-login">Entrar</button>
       <button class="btn" id="em-signup">Criar conta</button>
     </div>
+    <div class="sub" id="em-forgot" style="cursor:pointer;color:var(--acc);text-decoration:underline">Esqueci minha senha</div>
   </div>
 
-  <div class="lpane" id="lp-phone" style="display:none">
-    <input class="linput" id="ph-num" type="tel" placeholder="Número de celular (com DDD)" autocomplete="tel">
-    <button class="btn y" id="ph-send">Enviar código</button>
-    <div id="ph-step2" style="display:none;flex-direction:column;gap:10px;width:100%">
-      <div class="sub" id="ph-hint" style="font-size:12px"></div>
-      <input class="linput" id="ph-code" type="tel" inputmode="numeric" placeholder="Código de verificação" maxlength="6">
-      <button class="btn y" id="ph-verify">Verificar e entrar</button>
+  <div class="lpane" id="lp-reset" style="display:none">
+    <div class="title" style="font-size:18px;color:var(--acc)">Esqueci a senha</div>
+    <div class="sub" style="font-size:12px">Digite o e-mail da conta e enviaremos um código de 6 dígitos.</div>
+    <input class="linput" id="rs-email" type="email" placeholder="E-mail da conta" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <button class="btn y" id="rs-send">Enviar código</button>
+    <div id="rs-step2" style="display:none;flex-direction:column;gap:10px;width:100%">
+      <input class="linput" id="rs-code" type="tel" inputmode="numeric" placeholder="Código de 6 dígitos" maxlength="6" autocomplete="one-time-code">
+      <input class="linput" id="rs-pass" type="password" placeholder="Nova senha" autocomplete="new-password">
+      <input class="linput" id="rs-pass2" type="password" placeholder="Repita a nova senha" autocomplete="new-password">
+      <button class="btn y" id="rs-confirm">Redefinir senha</button>
     </div>
-    <div id="ph-msg" class="sub" style="color:#f87171;min-height:16px;font-size:12px"></div>
-    <div id="ph-recaptcha"></div>
+    <div id="rs-msg" class="sub" style="color:#f87171;min-height:32px;font-size:12px"></div>
+    <div class="sub" id="rs-back" style="cursor:pointer;text-decoration:underline">Voltar</div>
   </div>
 
   <button class="btn" id="btn-guest">Continuar sem login</button>
@@ -281,7 +289,7 @@ body[data-ui=nav] #user-arrow svg{width:44px;height:44px}
   <div class="set"><span id="acct-label" style="display:flex;align-items:center;gap:10px">Não conectado</span><span id="acct-btn" style="cursor:pointer;color:var(--acc);font-weight:700">Entrar</span></div>
   <div class="set" id="row-edit" style="display:none"><span>Editar perfil<small>Nome de usuário e foto de perfil</small></span><span id="btn-editprof" style="cursor:pointer;color:var(--acc);font-weight:700">Editar</span></div>
   <div class="sh">Mapa</div>
-  <div class="set"><span>Tipo de mapa<small>Estilo visual do mapa</small></span><select data-k="theme"><option value="atlas">GTA V — Atlas (dia)</option><option value="noite">GTA V — Radar noturno</option><option value="sat">Satélite</option></select></div>
+  <div class="set"><span>Tipo de mapa<small>Estilo visual do mapa</small></span><select data-k="theme"><option value="auto">Padrão do sistema</option><option value="claro">Claro</option><option value="escuro">Escuro</option><option value="sat">Satélite (com nomes)</option></select></div>
   <div class="set"><span>Mostrar radar</span><input type="checkbox" data-k="radar"></div>
   <div class="set"><span>Radar gira com a direção<small>Desligado: norte sempre em cima</small></span><input type="checkbox" data-k="follow"></div>
   <div class="set"><span>Bússola<small>Radar e seta acompanham o giro do celular</small></span><input type="checkbox" data-k="compass"></div>
@@ -297,7 +305,7 @@ body[data-ui=nav] #user-arrow svg{width:44px;height:44px}
   <div class="set"><small>© OpenStreetMap · Esri · Photon · Overpass · OSRM (FOSSGIS)</small></div>
 </div>
 
-<div id="sv"><div><span>Street View</span><span id="sv-close" style="cursor:pointer;color:var(--acc)">Fechar ✕</span></div><iframe id="sv-frame"></iframe></div>
+<div id="sv"><div class="svh"><span>Street View</span><span id="sv-close" style="cursor:pointer;color:var(--acc)">Fechar ✕</span></div><div id="sv-note"></div><div id="sv-pano" style="display:none"></div><iframe id="sv-frame" style="display:none"></iframe></div>
 
 <div id="diag" class="panel" style="display:none;top:50%;left:12px;right:12px;transform:translateY(-50%);padding:16px;z-index:5000;font-size:14px;line-height:1.5"></div>
 <script>
@@ -323,7 +331,10 @@ const PLACES=[
 const OSM=['https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}];
 const ESRI_ST=['https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19}];
 const ESRI_SAT=['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19}];
-const TILES={atlas:[ESRI_ST,OSM],noite:[OSM,ESRI_ST],sat:[ESRI_SAT,OSM]};
+// Nomes de ruas e lugares por cima do satélite (camadas de referência da Esri)
+const ESRI_ROADS=['https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,maxNativeZoom:18}];
+const ESRI_PLACES=['https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,maxNativeZoom:18}];
+const TILES={claro:[ESRI_ST,OSM],escuro:[OSM,ESRI_ST],sat:[ESRI_SAT,OSM]};
 const ARROW={left:'←',right:'→',straight:'↑','slight left':'↖','slight right':'↗','sharp left':'↙','sharp right':'↘',uturn:'↶'};
 const TXT={left:'Vire à esquerda',right:'Vire à direita',straight:'Siga em frente','slight left':'Curva leve à esquerda','slight right':'Curva leve à direita','sharp left':'Curva fechada à esquerda','sharp right':'Curva fechada à direita',uturn:'Faça o retorno'};
 const ZM={car:18,moto:18,bus:18,foot:19},TA={car:52,moto:52,bus:50,foot:44}; // zoom e inclinação da câmera por meio
@@ -335,8 +346,9 @@ let user=[-22.8431,-43.0560],lastPos=user,heading=0,dest=null,destMarker=null,ro
 let selMode='car',navigating=false,arrived=false,simTimer=null,gotFix=false,lastStep=-1,navIdx=0,camH=0,lastUI=0,lastT=0,spd=0;
 let arrowA=0,radarA=0; // ângulos "desenrolados" pra seta/radar não darem a volta inteira ao cruzar 0°/360°
 const store={get:(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
-let cfg=Object.assign({nav:'auto',units:'km',voice:false,follow:true,compass:true,radar:true,theme:'atlas',provider:'gemini',gkey:'',gmodel:'gemini-3.6-flash',tilt:true,simx:'4',model:'claude-haiku-4-5-20251001',key:'',gclient:''},store.get('cfg',{}));
+let cfg=Object.assign({nav:'auto',units:'km',voice:false,follow:true,compass:true,radar:true,theme:'auto',provider:'gemini',gkey:'',gmodel:'gemini-3.6-flash',tilt:true,simx:'4',model:'claude-haiku-4-5-20251001',key:'',gclient:''},store.get('cfg',{}));
 if(cfg.gmodel==='gemini-2.5-flash')cfg.gmodel='gemini-3.6-flash';
+if(cfg.theme==='atlas')cfg.theme='claro';else if(cfg.theme==='noite')cfg.theme='escuro'; // nomes antigos
 if(!cfg.gclient)cfg.gclient='452525255855-8fsrm4m29evd9g34egne5c3g14sn06b2.apps.googleusercontent.com';
 
 const PROXY='https://ormaps-ai.roberalves30.workers.dev'; // Worker que guarda a chave do Gemini
@@ -352,8 +364,13 @@ const firstName=()=>{const u=store.get('user',null);return u&&u.name?u.name.trim
 // Mapas (principal + radar)
 const map=L.map('map',{zoomControl:false,attributionControl:false,preferCanvas:true}).setView(user,14);
 const radar=L.map('radar-map',{preferCanvas:true,zoomControl:false,attributionControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,touchZoom:false,boxZoom:false,keyboard:false}).setView(user,17);
-function setTheme(t,k=0){
+const darkMQ=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
+const effTheme=()=>cfg.theme==='auto'?(darkMQ&&darkMQ.matches?'escuro':'claro'):cfg.theme; // "Padrão do sistema" segue o modo claro/escuro do celular
+function setTheme(t=effTheme(),k=0){
+  if(!TILES[t])t='claro';
   document.body.dataset.theme=t;
+  (map._lb||[]).forEach(l=>map.removeLayer(l));map._lb=[];
+  if(t==='sat')[ESRI_ROADS,ESRI_PLACES].forEach(x=>map._lb.push(L.tileLayer(x[0],{...x[1],keepBuffer:1,updateWhenZooming:false,zIndex:5}).addTo(map)));
   [map,radar].forEach(m=>{
     if(m._tl)m.removeLayer(m._tl);
     const tl=L.tileLayer(TILES[t][k][0],{...TILES[t][k][1],keepBuffer:1,updateWhenZooming:false}).addTo(m);m._tl=tl;
@@ -361,7 +378,8 @@ function setTheme(t,k=0){
       tl.on('tileerror',()=>{if(!ok&&++bad===4){TILES[t][k+1]?setTheme(t,k+1):fail('Os tiles do mapa não carregaram. Confira a internet.')}})}
   });
 }
-setTheme(cfg.theme);
+if(darkMQ){const onSys=()=>{if(cfg.theme==='auto')setTheme()};darkMQ.addEventListener?darkMQ.addEventListener('change',onSys):darkMQ.addListener(onSys)}
+setTheme();
 
 const ICONS={
  arrow:'<path d="M12 2 20 21 12 17 4 21z" fill="#fff" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/>',
@@ -461,7 +479,7 @@ async function nearby(k,v,name){
 const isLoggedIn=()=>!!store.get('user',null);
 function remember(p){if(!isLoggedIn())return;store.set('recents',[p,...store.get('recents',[]).filter(x=>x.n!==p.n)].slice(0,5))}
 
-// Waypoint ao tocar no mapa (como no mapa do GTA)
+// Waypoint ao tocar no mapa
 map.on('click',async e=>{
   if(navigating)return;
   const{lat,lng}=e.latlng;let n='Waypoint',a=`${lat.toFixed(5)}, ${lng.toFixed(5)}`;
@@ -664,9 +682,60 @@ $('btn-share').onclick=async()=>{
   const u=`https://www.google.com/maps/dir/?api=1&destination=${dest[0]},${dest[1]}`,b=$('btn-share');
   try{if(navigator.share)await navigator.share({title:$('card-title').textContent,url:u});else{await navigator.clipboard.writeText(u);b.textContent='Copiado ✓';setTimeout(()=>b.textContent='Compartilhar',1500)}}catch{}
 };
-function open360(){const p=dest||user;$('sv-frame').src=`https://maps.google.com/maps?q=&layer=c&cbll=${p[0]},${p[1]}&cbp=12,0,0,0,0&output=svembed`;$('sv').style.display='flex'}
-$('btn-360').onclick=$('preview').onclick=open360;
-$('sv-close').onclick=()=>{$('sv').style.display='none';$('sv-frame').src=''};
+// 360° preciso: com a chave do Google (app-config.js) acha o panorama OFICIAL mais próximo do ponto exato,
+// vira a câmera pro local e mostra a data e a distância. Se não houver imagem perto, avisa em vez de mostrar outra rua.
+// Sem chave, cai no modo aproximado (embed antigo).
+let svPano=null,gmP=null;
+const gKey=()=>CFG().gmapsKey||'';
+const svNote=t=>{$('sv-note').textContent=t};
+function loadGmaps(){
+  if(window.google&&google.maps&&google.maps.StreetViewService)return Promise.resolve();
+  return gmP||(gmP=new Promise((ok,bad)=>{
+    window.__gmReady=ok;
+    window.gm_authFailure=()=>{gmP=null;svNote('A chave do Google Maps foi recusada. Confira o site autorizado e o faturamento no Google Cloud.');bad(new Error('auth'))};
+    const sc=document.createElement('script');
+    sc.src=`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(gKey())}&v=weekly&language=pt-BR&region=BR&callback=__gmReady`;
+    sc.async=true;sc.onerror=()=>{gmP=null;bad(new Error('load'))};document.head.appendChild(sc);
+  }));
+}
+function findPano(lat,lon,radii){
+  const svs=new google.maps.StreetViewService();
+  return new Promise(done=>{
+    let i=0;
+    (function next(){
+      if(i>=radii.length)return done(null);
+      svs.getPanorama({location:{lat,lng:lon},radius:radii[i++],preference:google.maps.StreetViewPreference.NEAREST,sources:[google.maps.StreetViewSource.OUTDOOR]},(d,st)=>{
+        if(st===google.maps.StreetViewStatus.OK&&d&&d.location&&d.location.pano)done(d);else next();
+      });
+    })();
+  });
+}
+async function open360(wide){
+  const p=dest||user,note=$('sv-note'),pano=$('sv-pano'),fr=$('sv-frame');
+  $('sv').style.display='flex';pano.style.display='none';fr.style.display='none';fr.src='';
+  if(!gKey()){
+    fr.src=`https://maps.google.com/maps?q=&layer=c&cbll=${p[0]},${p[1]}&cbp=12,0,0,0,0&output=svembed`;fr.style.display='block';
+    svNote('Modo aproximado. Para o 360° preciso, coloque a chave do Google no app-config.js.');return;
+  }
+  svNote('Buscando a imagem 360° mais próxima…');
+  try{await loadGmaps()}catch(e){if(e.message!=='auth')svNote('Não consegui carregar o Street View. Confira a internet.');return}
+  const d=await findPano(p[0],p[1],wide?[100,200,300]:[15,30,50]);
+  if(!d){
+    note.textContent=wide?'Não há imagens 360° oficiais a menos de 300 m deste local.':'Não há imagens 360° oficiais a menos de 50 m deste local. ';
+    if(!wide){const b=document.createElement('b');b.textContent='Ver a mais próxima (até 300 m)';b.onclick=()=>open360(true);note.appendChild(b)}
+    return;
+  }
+  const ll=d.location.latLng,m=Math.round(L.latLng(ll.lat(),ll.lng()).distanceTo(L.latLng(p[0],p[1])));
+  const dt=d.imageDate&&/^\d{4}-\d{2}/.test(d.imageDate)?`${d.imageDate.slice(5,7)}/${d.imageDate.slice(0,4)}`:'';
+  svNote(`${dt?'Imagem de '+dt+' · ':''}câmera a ${m} m do local, virada pra ele`);
+  pano.style.display='block';
+  const pov={heading:bearing([ll.lat(),ll.lng()],p),pitch:0};
+  if(!svPano)svPano=new google.maps.StreetViewPanorama(pano,{pano:d.location.pano,pov,zoom:1,addressControl:false,fullscreenControl:false,motionTracking:false,motionTrackingControl:false,showRoadLabels:true,enableCloseButton:false});
+  else{svPano.setPano(d.location.pano);svPano.setPov(pov);svPano.setZoom(1);google.maps.event.trigger(svPano,'resize')}
+  svPano.setVisible(true);
+}
+$('btn-360').onclick=$('preview').onclick=()=>open360(false);
+$('sv-close').onclick=()=>{$('sv').style.display='none';$('sv-frame').src='';if(svPano)svPano.setVisible(false)};
 
 // Configurações (estilo Google Maps), favoritos, voz e assistente
 window.closeModals=()=>document.querySelectorAll('.modal').forEach(m=>m.classList.remove('open'));
@@ -674,7 +743,7 @@ $('btn-settings').onclick=()=>$('settings').classList.add('open');
 $('set-back').onclick=()=>$('settings').classList.remove('open');
 $('btn-chat').onclick=()=>{closeModals();chatHello();$('m-chat').classList.add('open');where()};
 $('btn-recenter').onclick=$('radar').onclick=()=>map.setView(user,17);
-function apply(k){if(k==='theme')setTheme(cfg.theme);if(k==='radar')$('radar-wrap').style.display=cfg.radar?'':'none';if(k==='follow')applyHeading(false);if(k==='compass')syncCompass(true);if(k==='gclient'&&$('login').style.display==='flex')initGoogle()}
+function apply(k){if(k==='theme')setTheme();if(k==='radar')$('radar-wrap').style.display=cfg.radar?'':'none';if(k==='follow')applyHeading(false);if(k==='compass')syncCompass(true);if(k==='gclient'&&$('login').style.display==='flex')initGoogle()}
 document.querySelectorAll('[data-k]').forEach(e=>{
   const k=e.dataset.k,c=e.type==='checkbox';
   if(c)e.checked=!!cfg[k];else e.value=cfg[k];
@@ -771,7 +840,7 @@ async function send(){
 }
 $('chat-send').onclick=send;$('chat-input').addEventListener('keydown',e=>{if(e.key==='Enter')send()});
 
-// Login: Google real (via Client ID em Configurações), e-mail/senha ou celular — todos guardados só neste navegador.
+// Login: Google real (via Client ID em Configurações) ou e-mail/senha.
 // Sem login = "Continuar sem login": dá pra usar o mapa, mas nada é salvo (ver isLoggedIn()).
 function decodeJwt(t){try{return JSON.parse(decodeURIComponent(escape(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))))}catch{return null}}
 function hashPass(s){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return String(h)}
@@ -805,12 +874,12 @@ function initGoogle(tries){
 // Abas do login
 document.querySelectorAll('.ltab').forEach(t=>t.onclick=()=>{
   document.querySelectorAll('.ltab').forEach(x=>x.classList.remove('on'));t.classList.add('on');
-  ['google','email','phone'].forEach(k=>$('lp-'+k).style.display=k===t.dataset.t?'flex':'none');
+  ['google','email'].forEach(k=>$('lp-'+k).style.display=k===t.dataset.t?'flex':'none');
   if(t.dataset.t==='google')initGoogle();
 });
 
-// E-mail + senha e celular (SMS): reais via Firebase Authentication quando o firebase-config.js está preenchido.
-// Sem configuração, cai no modo local/demonstração antigo (nada é enviado).
+// E-mail + senha. Com o firebase-config.js preenchido as contas são reais (Firebase Authentication);
+// sem ele, ficam salvas só neste aparelho/navegador.
 const FBC=window.ORMAPS_FIREBASE||{};
 let fbAuth=null;
 try{if(window.firebase&&FBC.apiKey&&FBC.appId){firebase.initializeApp(FBC);fbAuth=firebase.auth();fbAuth.languageCode='pt-BR'}}catch(e){console.error('Firebase:',e)}
@@ -818,23 +887,21 @@ const FB_ERR={
  'auth/email-already-in-use':'Já existe uma conta com esse e-mail. Toque em Entrar.',
  'auth/invalid-email':'Esse e-mail não parece válido (ex.: nome@gmail.com).',
  'auth/weak-password':'Senha fraca: use pelo menos 6 caracteres.',
- 'auth/invalid-credential':'E-mail ou senha incorretos.','auth/wrong-password':'E-mail ou senha incorretos.','auth/user-not-found':'E-mail ou senha incorretos.','auth/invalid-login-credentials':'E-mail ou senha incorretos.',
+ 'auth/user-not-found':'Esse e-mail ainda não tem conta. Toque em Criar conta.',
+ 'auth/wrong-password':'Senha incorreta. Tente de novo.',
+ 'auth/invalid-credential':'E-mail ou senha incorretos.','auth/invalid-login-credentials':'E-mail ou senha incorretos.',
+ 'auth/user-disabled':'Essa conta foi desativada.',
  'auth/too-many-requests':'Muitas tentativas. Espere alguns minutos e tente de novo.',
  'auth/network-request-failed':'Sem conexão. Confira a internet.',
- 'auth/operation-not-allowed':'Esse método de login ainda não foi ativado no Firebase.',
- 'auth/unauthorized-domain':'Este site não está autorizado no Firebase (adicione davovo57.github.io em Authorized domains).',
- 'auth/invalid-phone-number':'Número inválido. Digite DDD + número.',
- 'auth/missing-phone-number':'Digite o número do celular.',
- 'auth/invalid-verification-code':'Código incorreto.','auth/code-expired':'Código expirado. Peça um novo.',
- 'auth/quota-exceeded':'Limite de SMS atingido. Tente mais tarde.',
- 'auth/billing-not-enabled':'SMS não liberado: ative o plano Blaze no Firebase.',
- 'auth/captcha-check-failed':'Falha na verificação de segurança. Tente de novo.'
+ 'auth/operation-not-allowed':'O login por e-mail ainda não foi ativado no Firebase.',
+ 'auth/unauthorized-domain':'Este site não está autorizado no Firebase (adicione davovo57.github.io em Authorized domains).'
 };
 const fbMsg=e=>FB_ERR[e&&e.code]||('Erro: '+((e&&e.code)||(e&&e.message)||'tente de novo'));
 async function busy(b,fn){const t=b.textContent;b.disabled=true;b.textContent='Aguarde…';try{await fn()}finally{b.disabled=false;b.textContent=t}}
 
-// E-mail + senha
-const emMsg=t=>{$('em-msg').textContent=t||''};
+const emMsg=(t,info)=>{const m=$('em-msg');m.textContent=t||'';m.style.color=info?'var(--acc)':'#f87171'};
+const emConfirm=show=>{$('em-pass2').style.display=show?'':'none';if(!show)$('em-pass2').value=''};
+['em-email','em-pass','em-pass2'].forEach(id=>$(id).addEventListener('input',()=>emMsg('')));
 function emCheck(){
   const email=$('em-email').value.trim().toLowerCase(),pass=$('em-pass').value;
   if(!email){emMsg('Digite seu e-mail.');return null}
@@ -842,19 +909,25 @@ function emCheck(){
   if(!pass){emMsg('Digite sua senha.');return null}
   emMsg('');return{email,pass};
 }
+// Criar conta: 1º toque confere o e-mail e pede pra repetir a senha; 2º toque cria.
 $('em-signup').onclick=()=>busy($('em-signup'),async()=>{
-  const c=emCheck();if(!c)return;const{email,pass}=c,min=fbAuth?6:4;
-  if(pass.length<min)return emMsg(`Senha muito curta (mín. ${min} caracteres).`);
+  const c=emCheck();if(!c)return;const{email,pass}=c;
+  if(pass.length<6)return emMsg('Senha muito curta: use pelo menos 6 caracteres.');
+  const old=getAccounts()[email];
+  if(!fbAuth&&old)return emMsg(old.pass?'Já existe uma conta com esse e-mail. Toque em Entrar.':'Esse e-mail já foi usado com o Google. Use a aba Google.');
+  if($('em-pass2').style.display==='none'){emConfirm(true);$('em-pass2').focus();return emMsg('E-mail livre! Repita a senha e toque em Criar conta.',true)}
+  if($('em-pass2').value!==pass)return emMsg('As senhas não são iguais.');
   if(fbAuth){
     try{await fbAuth.createUserWithEmailAndPassword(email,pass)}catch(e){return emMsg(fbMsg(e))}
-    const acc=getAccounts()[email]||{method:'email',id:email,name:'',gender:''};
-    saveAccount(acc);return loginAs(acc,true);
+    const acc=old||{method:'email',id:email,name:'',gender:''};
+    saveAccount(acc);emConfirm(false);return loginAs(acc,true);
   }
-  if(getAccounts()[email])return emMsg('Já existe uma conta com esse e-mail. Toque em Entrar.');
   const acc={method:'email',id:email,pass:hashPass(pass),name:'',gender:''};
-  saveAccount(acc);loginAs(acc,true);
+  saveAccount(acc);emConfirm(false);loginAs(acc,true);
 });
+// Entrar: diz se o e-mail não tem conta ou se a senha está errada.
 $('em-login').onclick=()=>busy($('em-login'),async()=>{
+  emConfirm(false);
   const c=emCheck();if(!c)return;
   if(fbAuth){
     try{await fbAuth.signInWithEmailAndPassword(c.email,c.pass)}catch(e){return emMsg(fbMsg(e))}
@@ -862,53 +935,77 @@ $('em-login').onclick=()=>busy($('em-login'),async()=>{
     return loginAs(acc,false);
   }
   const acc=getAccounts()[c.email];
-  if(!acc||acc.pass!==hashPass(c.pass))return emMsg('E-mail ou senha incorretos.');
+  if(!acc)return emMsg('Esse e-mail ainda não tem conta. Toque em Criar conta.');
+  if(!acc.pass)return emMsg('Esse e-mail foi cadastrado com o Google. Use a aba Google.');
+  if(acc.pass!==hashPass(c.pass))return emMsg('Senha incorreta. Tente de novo.');
   loginAs(acc,false);
 });
 
-// Celular: SMS real (Firebase + reCAPTCHA invisível) ou código simulado se o Firebase não estiver configurado
-let phoneCode=null,phonePending=null,phoneConf=null,recap=null;
-const phMsg=t=>{$('ph-msg').textContent=t||''};
-function resetRecap(){try{recap&&recap.clear()}catch{}recap=null;$('ph-recaptcha').innerHTML=''}
-function toE164(raw){
-  const d=raw.replace(/\D/g,'');
-  if(raw.trim().startsWith('+'))return'+'+d;
-  if(d.length>=12&&d.startsWith('55'))return'+'+d;
-  return'+55'+d.replace(/^0+/,'');
+
+// Esqueci a senha: manda um código de 6 dígitos pro e-mail (via EmailJS, configurado no app-config.js).
+// Com contas locais o código só prova que o e-mail é de quem pediu; contas online (Firebase) usam o e-mail de redefinição do Firebase.
+const CFG=()=>window.ORMAPS_CONFIG||{};
+const rsMsg=(t,info)=>{const m=$('rs-msg');m.textContent=t||'';m.style.color=info?'var(--acc)':'#f87171'};
+let rsState=null; // {email,hash,exp,tries,sentAt} — só na memória
+const sha=async t=>{if(!(window.crypto&&crypto.subtle))return hashPass(t);const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')};
+const newCode=()=>String(crypto.getRandomValues(new Uint32Array(1))[0]%1000000).padStart(6,'0');
+async function sendResetMail(email,code){
+  const e=CFG().emailjs||{};
+  if(!e.serviceId||!e.templateId||!e.publicKey)throw new Error('config');
+  const r=await fetch('https://api.emailjs.com/api/v1.0/email/send',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({service_id:e.serviceId,template_id:e.templateId,user_id:e.publicKey,template_params:{to_email:email,code,app_name:'ORmaps',minutes:'10'}})});
+  if(!r.ok)throw new Error('send');
 }
-$('ph-send').onclick=()=>busy($('ph-send'),async()=>{
-  const raw=$('ph-num').value,num=raw.replace(/\D/g,'');
-  if(num.length<10)return phMsg('Digite um número válido com DDD.');
-  phMsg('');
+function openReset(){
+  $('rs-email').value=$('em-email').value.trim();['rs-code','rs-pass','rs-pass2'].forEach(id=>$(id).value='');
+  $('rs-step2').style.display='none';rsMsg('');rsState=null;
+  document.querySelector('.login-tabs').style.display='none';
+  ['google','email'].forEach(k=>$('lp-'+k).style.display='none');$('lp-reset').style.display='flex';
+}
+function closeReset(){
+  $('lp-reset').style.display='none';document.querySelector('.login-tabs').style.display='flex';
+  document.querySelector('.ltab[data-t=email]').click();
+}
+$('em-forgot').onclick=openReset;$('rs-back').onclick=()=>{rsState=null;closeReset()};
+['rs-email','rs-code','rs-pass','rs-pass2'].forEach(id=>$(id).addEventListener('input',()=>rsMsg('')));
+$('rs-send').onclick=()=>busy($('rs-send'),async()=>{
+  const email=$('rs-email').value.trim().toLowerCase();
+  if(!email)return rsMsg('Digite o e-mail da conta.');
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))return rsMsg('Esse e-mail não parece válido (ex.: nome@gmail.com).');
+  if(rsState&&rsState.email===email&&Date.now()-rsState.sentAt<60000)return rsMsg('Espere 1 minuto para pedir outro código.');
   if(fbAuth){
-    const e164=toE164(raw);
-    try{
-      resetRecap();recap=new firebase.auth.RecaptchaVerifier('ph-recaptcha',{size:'invisible'});
-      phoneConf=await fbAuth.signInWithPhoneNumber(e164,recap);
-      phonePending=e164.replace(/\D/g,'');
-      $('ph-hint').textContent=`Enviamos um SMS para ${e164}. Digite o código recebido.`;
-      $('ph-step2').style.display='flex';
-    }catch(e){resetRecap();phMsg(fbMsg(e))}
-    return;
+    try{await fbAuth.sendPasswordResetEmail(email)}catch(e){return rsMsg(fbMsg(e))}
+    return rsMsg('Enviamos um e-mail com o link para criar uma nova senha. Olhe também o spam.',true);
   }
-  phonePending=num;phoneCode=String(Math.floor(1000+Math.random()*9000));
-  $('ph-hint').textContent=`Modo demonstração (sem SMS real) — seu código: ${phoneCode}`;
-  $('ph-step2').style.display='flex';
+  const acc=getAccounts()[email];
+  if(!acc)return rsMsg('Esse e-mail ainda não tem conta. Toque em Voltar e depois em Criar conta.');
+  if(!acc.pass)return rsMsg('Esse e-mail foi cadastrado com o Google. Use a aba Google.');
+  const code=newCode();
+  try{await sendResetMail(email,code)}
+  catch(e){return rsMsg(e.message==='config'?'O envio de e-mail ainda não foi configurado neste app.':'Não consegui enviar o e-mail agora. Tente de novo em instantes.')}
+  rsState={email,hash:await sha(email+':'+code),exp:Date.now()+10*60000,tries:0,sentAt:Date.now()};
+  $('rs-step2').style.display='flex';
+  rsMsg(`Enviamos um código de 6 dígitos para ${email}. Vale por 10 minutos. Olhe também o spam.`,true);
 });
-$('ph-verify').onclick=()=>busy($('ph-verify'),async()=>{
-  const code=$('ph-code').value.trim();
-  if(!code)return phMsg('Digite o código.');
-  if(fbAuth){
-    if(!phoneConf)return phMsg('Toque em Enviar código primeiro.');
-    try{await phoneConf.confirm(code)}catch(e){return phMsg(fbMsg(e))}
-  }else if(code!==phoneCode)return phMsg('Código incorreto.');
-  phMsg('');
-  const accs=getAccounts();const isNew=!accs[phonePending];
-  const acc=accs[phonePending]||{method:'phone',id:phonePending,name:'',gender:''};
-  saveAccount(acc);loginAs(acc,isNew);
+$('rs-confirm').onclick=()=>busy($('rs-confirm'),async()=>{
+  if(!rsState)return rsMsg('Peça um código primeiro.');
+  const code=$('rs-code').value.trim(),p1=$('rs-pass').value,p2=$('rs-pass2').value;
+  if(Date.now()>rsState.exp){rsState=null;return rsMsg('Esse código expirou. Toque em Enviar código para pedir outro.')}
+  if(!/^\d{6}$/.test(code))return rsMsg('Digite o código de 6 dígitos.');
+  if(p1.length<6)return rsMsg('Senha muito curta: use pelo menos 6 caracteres.');
+  if(p1!==p2)return rsMsg('As senhas não são iguais.');
+  if(await sha(rsState.email+':'+code)!==rsState.hash){
+    rsState.tries++;
+    if(rsState.tries>=5){rsState=null;return rsMsg('Muitas tentativas erradas. Peça um novo código.')}
+    return rsMsg(`Código incorreto. Restam ${5-rsState.tries} tentativa(s).`);
+  }
+  const acc=getAccounts()[rsState.email];acc.pass=hashPass(p1);saveAccount(acc);
+  const em=rsState.email;rsState=null;
+  closeReset();$('em-email').value=em;$('em-pass').value='';
+  emMsg('Senha alterada! Entre com a nova senha.',true);
 });
 
-function openLogin(){$('login').style.display='flex';initGoogle()}
+function openLogin(){if($('lp-reset').style.display==='flex'){rsState=null;closeReset()}$('login').style.display='flex';initGoogle()}
 function closeLogin(){$('login').style.display='none'}
 $('btn-guest').onclick=()=>{store.set('guest',true);closeLogin()};
 
